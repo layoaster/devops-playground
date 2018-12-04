@@ -7,5 +7,4 @@ source =
 
 [report]
 omit =
-    *__init__.py
     */test/*

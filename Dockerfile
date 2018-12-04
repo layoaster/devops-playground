@@ -4,7 +4,7 @@ LABEL maintainer="Lionel Mena <lionel@audiadis.com>"
 
 WORKDIR /code
 
-COPY requirements.txt .
+COPY requirements.txt .coveragerc ./
 
 RUN set -x \
     && apk add --update --no-cache \
