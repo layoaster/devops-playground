@@ -4,7 +4,7 @@ LABEL maintainer="Lionel Mena <lionel@audiadis.com>"
 
 WORKDIR /code
 
-COPY requirements.txt .coveragerc ./
+COPY requirements.txt .coveragerc pytest.ini ./
 
 RUN set -x \
     && apk add --update --no-cache \

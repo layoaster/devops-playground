@@ -1,21 +1,25 @@
 image: docker:stable
 
 variables:
-   # When using dind, it's wise to use the overlayfs driver for
-   # improved performance.
-   DOCKER_DRIVER: overlay2
+  # When using dind, it's wise to use the overlayfs driver for
+  # improved performance.
+  DOCKER_DRIVER: overlay2
 
-   # GCP Container Registry domain
-   GCP_CR_DOMAIN: eu.gcr.io
-
+  # GCP Container Registry domain
+  GCP_CR_DOMAIN: eu.gcr.io
+  # CI's docker-compose config file
+  CI_DOCKER_COMPOSE_FILE: ./etc/ci/docker-compose-ci.yml
 
 services:
   - docker:dind
 
 before_script:
   # Env vars
-     # Docker base image tag
+  # Docker base image tag
   - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
+  - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
+
+  # Environment/Docker information
   - docker info
 
   # Installing docker-compose
@@ -34,13 +38,16 @@ stages:
 build:
   stage: build
   script:
-    - docker-compose build
-    - docker tag webapi "${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA}"
-    - docker push "${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA}"
+    - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" build --no-cache
+    - docker push "${WEBAPI_IMAGE_TAG}"
+
+code_quality:
+  stage: test
+  script:
+    - flake8
 
 test:
   stage: test
   script:
-    - docker pull "${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA}"
-    - docker tag "${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA}" webapi
-    - docker-compose run --rm webapi sh -c 'pytest --cov'
+    - docker pull "${WEBAPI_IMAGE_TAG}"
+    - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" run --rm webapi pytest
