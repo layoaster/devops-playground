@@ -9,12 +9,14 @@ services:
     ports:
       - "80:5000"
     networks:
-        - api_network
+      - api_network
+    depends_on:
+      - redis
 
   redis:
     image: "redis:5.0.2-alpine"
     networks:
-        - api_network
+      - api_network
 
 networks:
   api_network:
