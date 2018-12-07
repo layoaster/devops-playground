@@ -1,0 +1,17 @@
+# Docker compose for local/dev environment
+version: "3"
+
+services:
+  webapi:
+    build:
+        context: .
+    image: webapi
+    volumes:
+      - ./myapi:/code/myapi
+    ports:
+      - "80:5000"
+    networks:
+        - api_network
+
+networks:
+  api_network:
