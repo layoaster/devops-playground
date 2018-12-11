@@ -6,6 +6,8 @@ services:
     build:
       context: .
     image: webapi
+    environment:
+      - REDIS_HOSTNAME=redis
     volumes:
       - ./myapi:/code/myapi
     ports:
