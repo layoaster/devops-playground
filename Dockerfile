@@ -1,6 +1,6 @@
 FROM python:3.6.7-alpine3.7
 
-LABEL maintainer="Lionel Mena <lionel@audiadis.com>"
+LABEL maintainer="Lionel Mena <lionel@audiadis.io>"
 
 WORKDIR /code
 
