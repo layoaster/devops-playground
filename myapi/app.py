@@ -1,6 +1,7 @@
 """
 Sample API implementation.
 """
+import os
 import time
 
 import redis
@@ -11,7 +12,7 @@ app = Flask(__name__)
 api = Api(app)
 
 # Redis DB
-cache = redis.Redis(host='redis', port=6379)
+cache = redis.Redis(host=os.getenv('REDIS_HOSTNAME'), port=6379)
 
 
 def get_hit_count():
