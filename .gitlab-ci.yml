@@ -44,6 +44,7 @@ before_script:
 stages:
   - build
   - test
+  - staging
 
 
 build:
@@ -63,3 +64,13 @@ test:
     - docker pull "${WEBAPI_IMAGE_TAG}"
     - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" run --rm webapi pytest
     - docker-compose down
+
+staging:
+  image: eu.gcr.io/audiadis-infrastructure/infra/gcloud-helm:latest
+  stage: staging
+  script:
+    - helm  version
+  environment:
+    name: staging
+    url: https://staging.audiadis.io
+
