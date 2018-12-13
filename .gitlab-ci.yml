@@ -66,7 +66,7 @@ test:
     - docker-compose down
 
 staging:
-  image: eu.gcr.io/audiadis-infrastructure/infra/gcloud-helm:latest
+  image: layo85/gcloud-helm:latest
   stage: staging
   script:
     - helm  version
