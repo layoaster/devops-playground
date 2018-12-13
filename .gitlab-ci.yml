@@ -19,18 +19,13 @@ variables:
   # CI's docker-compose config file
   CI_DOCKER_COMPOSE_FILE: ./etc/ci/docker-compose-ci.yml
 
-before_script:
-  # Env vars
-  # Docker base image tag
-  - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
-  - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
 
 stages:
   - build
   - test
   - staging
 
-
+############## Build #############
 build:
   stage: build
 
@@ -39,6 +34,11 @@ build:
   - docker:dind
 
   before_script:
+    # Env vars
+    # Docker base image tag
+    - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
+    - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
+
     # Environment/Docker information
     - docker info
 
@@ -49,10 +49,12 @@ build:
     # Docker login for the GCP Container regustry
     - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
     - docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+
   script:
     - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" build --no-cache
     - docker push "${WEBAPI_IMAGE_TAG}"
 
+############## Code Quality #############
 code_quality:
   stage: test
 
@@ -61,6 +63,11 @@ code_quality:
   - docker:dind
 
   before_script:
+    # Env vars
+    # Docker base image tag
+    - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
+    - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
+
     # Environment/Docker information
     - docker info
 
@@ -75,6 +82,7 @@ code_quality:
   script:
     - flake8
 
+############## Test #############
 test:
   stage: test
   script:
@@ -82,6 +90,8 @@ test:
     - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" run --rm webapi pytest
     - docker-compose down
 
+
+############## Deployment Staging #############
 staging:
   image: layo85/gcloud-helm:latest
   stage: staging
