@@ -19,7 +19,6 @@ variables:
   # CI's docker-compose config file
   CI_DOCKER_COMPOSE_FILE: ./etc/ci/docker-compose-ci.yml
 
-
 stages:
   - build
   - test
@@ -118,8 +117,12 @@ staging:
   image: layo85/gcloud-helm:latest
   stage: staging
   script:
-    - helm version
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
+    - gcloud auth activate-service-account gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com --key-file=key.json
+    - gcloud container clusters get-credentials $CI_ENVIRONMENT_NAME
+    # - helm version
   environment:
     name: staging
-    url: https://staging.audiadis.io
+    url: https://$CI_ENVIRONMENT_NAME.audiadis.io
+
 
