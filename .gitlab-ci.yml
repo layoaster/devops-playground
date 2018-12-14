@@ -117,9 +117,13 @@ staging:
   image: layo85/gcloud-helm:latest
   stage: staging
 
+  variables:
+    GCP_ZONE:  europe-west1-b
+
   script:
     - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
     - gcloud auth activate-service-account gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com --key-file=key.json
+    - gcloud config set compute/zone $$GCP_ZONE
     - gcloud container clusters get-credentials $CI_ENVIRONMENT_NAME
     # - helm version
   environment:
