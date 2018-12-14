@@ -1,15 +1,8 @@
+# Project's CI/CD config
+
+image: alpine:latest
+
 variables:
-  # When using dind service we need to instruct docker, to talk with the
-  # daemon started inside of the service. The daemon is available with
-  # a network connection instead of the default /var/run/docker.sock socket.
-  #
-  # The 'docker' hostname is the alias of the service container as described at
-  # https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#accessing-the-services
-  #
-  # Note that if you're using Kubernetes executor, the variable should be set to
-  # tcp://localhost:2375 because of how Kubernetes executor connects services
-  # to the job container
-  DOCKER_HOST: tcp://docker:2375/
   # When using dind, it's wise to use the overlayfs driver for
   # improved performance.
   DOCKER_DRIVER: overlay2
@@ -19,94 +12,61 @@ variables:
   # CI's docker-compose config file
   CI_DOCKER_COMPOSE_FILE: ./etc/ci/docker-compose-ci.yml
 
+  # docker-compose version
+  DOCKER_COMPOSE_VERSION: 1.23.2
+
 stages:
   - build
   - test
   - staging
 
+
 ############## Build #############
 build:
   stage: build
 
-  image: docker:stable
+  image: docker:stable-git
   services:
-  - docker:dind
-
-  before_script:
-    # Env vars
-    # Docker base image tag
-    - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
-    - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
-
-    # Environment/Docker information
-    - docker info
-
-    # Installing docker-compose
-    - apk add --no-cache py-pip
-    - pip install docker-compose==1.23.2 flake8==3.6.0 flake8-import-order==0.18
-
-    # Docker login for the GCP Container regustry
-    - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
-    - docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+    - docker:stable-dind
 
   script:
+    - setup_docker
+    - setup_docker_compose
+    # Builds image
     - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" build --no-cache
+    # Docker login for the GCP Container Registry
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
+    - docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+    # Pusblish image
     - docker push "${WEBAPI_IMAGE_TAG}"
+
 
 ############## Code Quality #############
 code_quality:
   stage: test
 
-  image: docker:stable
-  services:
-  - docker:dind
-
-  before_script:
-    # Env vars
-    # Docker base image tag
-    - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
-    - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
-
-    # Environment/Docker information
-    - docker info
-
-    # Installing docker-compose
-    - apk add --no-cache py-pip
-    - pip install docker-compose==1.23.2 flake8==3.6.0 flake8-import-order==0.18
-
-    # Docker login for the GCP Container regustry
-    - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
-    - docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+  image: python:3.6-alpine3.7
 
   script:
+    - setup_code_quality
     - flake8
+
 
 ############## Test #############
 test:
   stage: test
 
-  image: docker:stable
+  image: docker:stable-git
   services:
-  - docker:dind
-
-  before_script:
-    # Env vars
-    # Docker base image tag
-    - export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
-    - export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
-
-    # Environment/Docker information
-    - docker info
-
-    # Installing docker-compose
-    - apk add --no-cache py-pip
-    - pip install docker-compose==1.23.2 flake8==3.6.0 flake8-import-order==0.18
-
-    # Docker login for the GCP Container regustry
-    - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
-    - docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+    - docker:stable-dind
 
   script:
+    - setup_docker
+    - setup_docker_compose
+    # Docker login for the GCP Container Registry
+    - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
+    - docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+    # Pulls image and test
     - docker pull "${WEBAPI_IMAGE_TAG}"
     - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" run --rm webapi pytest
     - docker-compose down
@@ -114,20 +74,80 @@ test:
 
 ############## Deployment Staging #############
 staging:
-  image: audiadis/gcloud-helm:latest
   stage: staging
 
-  variables:
-    GCP_ZONE:  europe-west1-b
+  image: audiadis/gcloud-helm:latest
 
   script:
+    # Authenticating and configuring gcloud/kubectl
     - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
-    - gcloud auth activate-service-account gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com --key-file=key.json
-    - gcloud config set compute/zone $GCP_ZONE
-    - gcloud container clusters get-credentials $CI_ENVIRONMENT_NAME
-    # - helm version
+    - gcloud auth activate-service-account "${GCP_SERVICE_ACCOUNT}" --key-file=key.json
+    - gcloud config set core/project "${GCP_PROJECT}"
+    - gcloud config set compute/zone "${GCP_ZONE}"
+    - gcloud container clusters get-credentials "${CI_ENVIRONMENT_NAME}"
+
+    # Setup helm-client
+    - helm version --client
+
   environment:
     name: staging
     url: https://$CI_ENVIRONMENT_NAME.audiadis.io
 
   when: manual
+
+
+# ---------------------------------------------------------------------------
+
+.env_vars_and_helpers: &env_vars_and_helpers |
+  ###### Global env vars ######
+  # App Name
+  export APP_NAME="webapi"
+
+  # Docker app image tags
+  export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
+  export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
+
+  # Google Cloud Config
+  export GCP_PROJECT="audiadis-infrastructure"
+  export GCP_ZONE="europe-west1-b"
+  export GCP_SERVICE_ACCOUNT="gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com"
+
+  # Kubenertes/Helm config
+  export HELM_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
+
+
+  ###### Helper funtions ######
+  function setup_docker() {
+    if ! docker info &>/dev/null; then
+      # When using dind service we need to instruct docker, to talk with the
+      # daemon started inside of the service. The daemon is available with
+      # a network connection instead of the default /var/run/docker.sock socket.
+      #
+      # The 'docker' hostname is the alias of the service container as described at
+      # https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#accessing-the-services
+      #
+      # Note that if you're using Kubernetes executor, the variable should be set to
+      # tcp://localhost:2375 because of how Kubernetes executor connects services
+      # to the job container
+      export DOCKER_HOST="tcp://docker:2375/"
+
+      # Docker login for the GCP Container Registry
+      echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
+      docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+    fi
+  }
+
+  function setup_docker_compose() {
+    # Installing docker-compose
+    apk add --no-cache py-pip
+    pip install "docker-compose==${DOCKER_COMPOSE_VERSION}"
+  }
+
+  function setup_code_quality() {
+    # Installing flake8
+    apk add --no-cache py-pip
+    grep -e "flake8" requirements_dev.txt | pip install -r /dev/stdin
+  }
+
+before_script:
+  - *env_vars_and_helpers
