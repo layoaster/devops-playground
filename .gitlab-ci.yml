@@ -116,6 +116,7 @@ test:
 staging:
   image: layo85/gcloud-helm:latest
   stage: staging
+
   script:
     - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
     - gcloud auth activate-service-account gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com --key-file=key.json
@@ -125,4 +126,4 @@ staging:
     name: staging
     url: https://$CI_ENVIRONMENT_NAME.audiadis.io
 
-
+  when: manual
