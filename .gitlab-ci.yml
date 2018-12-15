@@ -22,7 +22,7 @@ stages:
 
 
 ############## Build #############
-build:
+building:
   stage: build
 
   image: docker:stable-git
@@ -40,7 +40,7 @@ build:
 
 
 ############## Code Quality #############
-code quality:
+code quality checks:
   stage: test
 
   image: python:3.6-alpine3.7
@@ -51,7 +51,7 @@ code quality:
 
 
 ############## Test #############
-test:
+testing:
   stage: test
 
   image: docker:stable-git
@@ -69,7 +69,7 @@ test:
 
 
 ############## Deployment Staging #############
-staging deployment:
+deploy to staging:
   stage: staging
 
   image: audiadis/gcloud-helm:latest
