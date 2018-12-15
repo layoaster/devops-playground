@@ -22,7 +22,7 @@ stages:
 
 
 ############## Build #############
-build:
+.build:
   stage: build
 
   image: docker:stable-git
@@ -42,7 +42,7 @@ build:
 
 
 ############## Code Quality #############
-code_quality:
+.code quality:
   stage: test
 
   image: python:3.6-alpine3.7
@@ -53,7 +53,7 @@ code_quality:
 
 
 ############## Test #############
-test:
+.test:
   stage: test
 
   image: docker:stable-git
@@ -73,7 +73,7 @@ test:
 
 
 ############## Deployment Staging #############
-staging:
+staging deployment:
   stage: staging
 
   image: audiadis/gcloud-helm:latest
@@ -82,6 +82,7 @@ staging:
     # Authenticating and configuring gcloud/kubectl
     - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
     - setup_gcloud
+    - kubectl get deployments --all-namespaces
 
     # Setup helm-client
     - helm version --client
@@ -152,7 +153,6 @@ staging:
     gcloud config set core/project "${GCP_PROJECT}"
     gcloud config set compute/zone "${GCP_ZONE}"
     gcloud container clusters get-credentials "${KUBE_CLUSTER_NAME}"
-    kubectl get deployments --all-namespaces
   }
 
 before_script:
