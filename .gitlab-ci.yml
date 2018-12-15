@@ -152,6 +152,7 @@ staging:
     gcloud config set core/project "${GCP_PROJECT}"
     gcloud config set compute/zone "${GCP_ZONE}"
     gcloud container clusters get-credentials "${KUBE_CLUSTER_NAME}"
+    kubectl get deployments --all-namespaces
   }
 
 before_script:
