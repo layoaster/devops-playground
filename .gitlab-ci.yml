@@ -22,7 +22,7 @@ stages:
 
 
 ############## Build #############
-building:
+.building:
   stage: build
 
   image: docker:stable-git
@@ -40,7 +40,7 @@ building:
 
 
 ############## Code Quality #############
-code quality checks:
+.code quality checks:
   stage: test
 
   image: python:3.6-alpine3.7
@@ -51,7 +51,7 @@ code quality checks:
 
 
 ############## Test #############
-testing:
+.testing:
   stage: test
 
   image: docker:stable-git
@@ -80,6 +80,7 @@ deploy to staging:
     - kubectl get deployments --all-namespaces
 
     # Setup helm-client
+    - helm init
     - helm version
 
   environment:
