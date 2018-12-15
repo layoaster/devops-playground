@@ -80,7 +80,7 @@ deploy to staging:
     - kubectl get deployments --all-namespaces
 
     # Setup helm-client
-    - helm version --client
+    - helm version
 
   environment:
     name: staging
