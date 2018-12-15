@@ -81,10 +81,7 @@ staging:
   script:
     # Authenticating and configuring gcloud/kubectl
     - echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
-    - gcloud auth activate-service-account "${GCP_SERVICE_ACCOUNT}" --key-file=key.json
-    - gcloud config set core/project "${GCP_PROJECT}"
-    - gcloud config set compute/zone "${GCP_ZONE}"
-    - gcloud container clusters get-credentials "${CI_ENVIRONMENT_NAME}"
+    - setup_gcloud
 
     # Setup helm-client
     - helm version --client
@@ -114,6 +111,7 @@ staging:
 
   # Kubenertes/Helm config
   export HELM_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
+  export KUBE_CLUSTER_NAME="${CI_ENVIRONMENT_NAME}"
 
 
   ###### Helper funtions ######
@@ -147,6 +145,13 @@ staging:
     # Installing flake8
     apk add --no-cache py-pip
     grep -e "flake8" requirements_dev.txt | pip install -r /dev/stdin
+  }
+
+  setup_gcloud() {
+    gcloud auth activate-service-account "${GCP_SERVICE_ACCOUNT}" --key-file=key.json
+    gcloud config set core/project "${GCP_PROJECT}"
+    gcloud config set compute/zone "${GCP_ZONE}"
+    gcloud container clusters get-credentials "${KUBE_CLUSTER_NAME}"
   }
 
 before_script:
