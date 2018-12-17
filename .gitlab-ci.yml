@@ -170,10 +170,12 @@ deploy to staging:
       helm install \
         "${REDIS_CHART}" \
         --name "${REDIS_RELEASE_NAME}" \
-        -f etc/cd/helm-charts/redis/staging-values.yaml
-        --namespace "${APP_KUBE_NAMESPACE}"
-        --version "${REDIS_CHART_VERSION}"
+        -f etc/cd/helm-charts/redis/staging-values.yaml \
+        --namespace "${APP_KUBE_NAMESPACE}" \
+        --version "${REDIS_CHART_VERSION}" \
         --wait
+    else
+      echo "Redis is already deployed is ${CI_ENVIRONMENT_NAME}"
     fi
   }
 
