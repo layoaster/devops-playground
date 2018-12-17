@@ -185,7 +185,7 @@ deploy to staging:
       --debug \
       --set image.tag="${CI_COMMIT_SHA:0:8}" \
       --set ingress.hosts=["${APP_DOMAIN}"] \
-      --set ingress.tls[0].secretName="{CI_ENVIRONMENT_SLUG}-tls" \
+      --set ingress.tls[0].secretName="${CI_ENVIRONMENT_SLUG}-tls" \
       --set ingress.tls[0].hosts=["${APP_DOMAIN}"] \
       --set redisHostname="${REDIS_RELEASE_NAME}-master.${APP_KUBE_NAMESPACE}.svc.cluster.local" \
       --namespace "${APP_KUBE_NAMESPACE}" \
