@@ -78,10 +78,10 @@ deploy to staging:
     # Authenticating and configuring gcloud/kubectl
     - setup_gcloud_kubectl
     - kubectl get deployments --all-namespaces
-
     # Setup helm-client
-    - helm init
+    - setup_helm
     - helm version
+    - setup_redis
 
   environment:
     name: staging
@@ -96,6 +96,14 @@ deploy to staging:
   ###### Global env vars ######
   # App Name
   export APP_NAME="webapi"
+  export APP_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
+  export APP_KUBE_NAMESPACE="default"
+
+  # Redis
+  export REDIS_NAME="redis"
+  export REDIS_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${REDIS_NAME}"
+  export REDIS_CHART="stable/redis"
+  export REDIS_CHART_VERSION="5.1.2"
 
   # Docker app image tags
   export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
@@ -107,7 +115,7 @@ deploy to staging:
   export GCP_SERVICE_ACCOUNT="gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com"
 
   # Kubenertes/Helm config
-  export HELM_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
+  export TILLER_NAMESPACE="kube-system"
   export KUBE_CLUSTER_NAME="${CI_ENVIRONMENT_NAME}"
 
 
@@ -150,6 +158,23 @@ deploy to staging:
     gcloud config set core/project "${GCP_PROJECT}"
     gcloud config set compute/zone "${GCP_ZONE}"
     gcloud container clusters get-credentials "${KUBE_CLUSTER_NAME}"
+  }
+
+  setup_helm() {
+    helm init"
+    helm repo update
+  }
+
+  setup_redis() {
+    if [[ -z "$(helm list -q "^${REDIS_RELEASE_NAME}$")" ]]; then
+      helm install \
+        "${REDIS_CHART}" \
+        --name "${REDIS_RELEASE_NAME}" \
+        -f etc/cd/helm-charts/redis/staging-values.yaml
+        --namespace "${APP_KUBE_NAMESPACE}"
+        --version "${REDIS_CHART_VERSION}"
+        --wait
+    fi
   }
 
 before_script:
