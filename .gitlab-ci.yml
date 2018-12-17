@@ -161,7 +161,7 @@ deploy to staging:
   }
 
   setup_helm() {
-    helm init"
+    helm init
     helm repo update
   }
 
