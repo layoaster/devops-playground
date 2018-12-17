@@ -1,13 +1,11 @@
-# Docker compose for local/dev environment
+# Docker compose for CI/CD environment
 version: "3"
 
 services:
   webapi:
     build:
-      context: .
-    image: webapi
-    volumes:
-      - ./myapi:/code/myapi
+      context: ../../
+    image: ${WEBAPI_IMAGE_TAG}
     ports:
       - "80:5000"
     networks:
