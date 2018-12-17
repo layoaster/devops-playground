@@ -22,7 +22,7 @@ stages:
 
 
 ############## Build #############
-.building:
+building:
   stage: build
 
   image: docker:stable-git
@@ -40,7 +40,7 @@ stages:
 
 
 ############## Code Quality #############
-.code quality checks:
+code quality checks:
   stage: test
 
   image: python:3.6-alpine3.7
@@ -51,7 +51,7 @@ stages:
 
 
 ############## Test #############
-.testing:
+testing:
   stage: test
 
   image: docker:stable-git
@@ -77,15 +77,14 @@ deploy to staging:
   script:
     # Authenticating and configuring gcloud/kubectl
     - setup_gcloud_kubectl
-    - kubectl get deployments --all-namespaces
     # Setup helm-client
     - setup_helm
-    - helm version
     - setup_redis
+    - deploy_app
 
   environment:
     name: staging
-    url: https://$CI_ENVIRONMENT_NAME.audiadis.io
+    url: https://$CI_ENVIRONMENT_SLUG.audiadis.io
 
   when: manual
 
@@ -98,6 +97,7 @@ deploy to staging:
   export APP_NAME="webapi"
   export APP_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
   export APP_KUBE_NAMESPACE="default"
+  export APP_DOMAIN="${CI_ENVIRONMENT_SLUG}.audiadis.io"
 
   # Redis
   export REDIS_NAME="redis"
@@ -175,8 +175,22 @@ deploy to staging:
         --version "${REDIS_CHART_VERSION}" \
         --wait
     else
-      echo "Redis is already deployed is ${CI_ENVIRONMENT_NAME}"
+      echo "Redis is already deployed in ${CI_ENVIRONMENT_NAME}"
     fi
+  }
+
+  deploy_app() {
+    helm upgrade --install \
+      --dry-run \
+      --debug \
+      --set image.tag="${CI_COMMIT_SHA:0:8}" \
+      --set ingress.hosts=["${APP_DOMAIN}"] \
+      --set ingress.tls[0].secretName="{CI_ENVIRONMENT_SLUG}-tls" \
+      --set ingress.tls[0].hosts=["${APP_DOMAIN}"] \
+      --set redisHostname="${REDIS_RELEASE_NAME}-master.${APP_KUBE_NAMESPACE}.svc.cluster.local" \
+      --namespace "${APP_KUBE_NAMESPACE}" \
+      "${APP_RELEASE_NAME}" \
+      etc/cd/helm-charts/myapp/
   }
 
 before_script:
