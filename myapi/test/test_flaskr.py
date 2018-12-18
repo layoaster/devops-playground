@@ -22,7 +22,7 @@ def test_hello_world(api_client):
 
     assert isinstance(resp.json, dict)
     assert resp.json
-    assert 'Hello World!' in resp.json
+    assert 'Hello-World! hits' in resp.json
 
 
 def test_hello_world_counter(api_client):
@@ -32,7 +32,7 @@ def test_hello_world_counter(api_client):
     first_resp = api_client.get('/')
     second_resp = api_client.get('/')
 
-    init_count = first_resp.json['Hello World!']
-    inc_count = second_resp.json['Hello World!']
+    init_count = first_resp.json['Hello-World! hits']
+    inc_count = second_resp.json['Hello-World! hits']
 
     assert inc_count == init_count + 1

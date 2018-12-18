@@ -64,7 +64,8 @@ On this particular project two Helm Charts are being used:
 The cluster should be provisioned with the following components to get a
  fully functional deployment:
 
-  * The Helm server ([Tiller](https://docs.helm.sh/using_helm/#installing-helm))
+  * The Helm server
+    ([Tiller](https://docs.helm.sh/using_helm/#installing-tiller))
     with RBAC-enabled config to deploy charts.
   * The `ingress-nginx` controller
     ([link](https://github.com/kubernetes/ingress-nginx)) to expose the application
@@ -104,6 +105,14 @@ etc
     └── docker-compose-ci.yml           <-- docker-compose config for building and
                                             running test
 ```
+
+
+## Devops tools
+
+* [Google Cloud SDK](https://cloud.google.com/sdk/docs/downloads-interactive)
+  (kubectl is included).
+* [Helm client](https://docs.helm.sh/using_helm/#installing-the-helm-client).
+* [kubectx](https://github.com/ahmetb/kubectx)
 
 
 ## Useful links

@@ -45,7 +45,7 @@ class HelloWorld(Resource):
         """
         And it's GET handler.
         """
-        return {'Hello World!': get_hit_count()}
+        return {'Hello-World! hits': get_hit_count()}
 
 
 # Adding resources
