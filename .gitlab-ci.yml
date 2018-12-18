@@ -67,6 +67,8 @@ testing:
     - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" run --rm webapi pytest
     - docker-compose down
 
+  coverage: '/^TOTAL\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+\%)$/'
+
 
 ############## Deployment Staging #############
 deploy to staging:
