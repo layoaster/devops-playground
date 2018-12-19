@@ -7,18 +7,16 @@ variables:
   # improved performance.
   DOCKER_DRIVER: overlay2
 
-  # GCP Container Registry domain
-  GCP_CR_DOMAIN: eu.gcr.io
   # CI's docker-compose config file
   CI_DOCKER_COMPOSE_FILE: ./etc/ci/docker-compose-ci.yml
 
-  # docker-compose version
-  DOCKER_COMPOSE_VERSION: 1.23.2
 
 stages:
   - build
   - test
+  - review
   - staging
+  - production
 
 
 ############## Build #############
@@ -70,7 +68,62 @@ testing:
   coverage: '/^TOTAL\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+\%)$/'
 
 
-############## Deployment Staging #############
+############## App Review #############
+review:
+  stage: review
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Config for the review stage
+    - setup_preview_env
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Preview app deployment
+    - setup_redis
+    - deploy_app
+
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url: https://$CI_COMMIT_REF_SLUG.review.$APP_BASE_DOMAIN
+    on_stop: stop_review
+
+  only:
+    - branches
+  except:
+    - develop
+    - master
+
+
+stop_review:
+  stage: review
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Config for the review stage
+    - setup_preview_env
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Preview app deployment cleanup
+    - teardown_preview
+
+  variables:
+    GIT_STRATEGY: none
+
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    action: stop
+
+  when: manual
+
+
+
+############## Staging Deployment #############
 deploy to staging:
   stage: staging
 
@@ -81,25 +134,57 @@ deploy to staging:
     - setup_gcloud_kubectl
     # Setup helm-client
     - setup_helm
+    # Staging app deployment
     - setup_redis
     - deploy_app
 
   environment:
     name: staging
-    url: https://$CI_ENVIRONMENT_SLUG.audiadis.io
+    url: https://$CI_ENVIRONMENT_SLUG.$APP_BASE_DOMAIN
+
+  only:
+    - develop
+    - master
+
+
+############## Production Deployment #############
+deploy to production:
+  stage: production
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Production app deployment
+    - echo "Deployed to production"
+
+  environment:
+    name: production
+    url: https://api.$APP_BASE_DOMAIN
 
   when: manual
+
+  only:
+    - master
 
 
 # ---------------------------------------------------------------------------
 
 .env_vars_and_helpers: &env_vars_and_helpers |
   ###### Global env vars ######
+  # Externals tooling setup
+  export GCP_CR_DOMAIN="eu.gcr.io"
+  export DOCKER_COMPOSE_VERSION="1.23.2"
+
   # App Name
   export APP_NAME="webapi"
   export APP_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
   export APP_KUBE_NAMESPACE="default"
-  export APP_DOMAIN="${CI_ENVIRONMENT_SLUG}.audiadis.io"
+  export APP_DOMAIN="${CI_ENVIRONMENT_SLUG}.${APP_BASE_DOMAIN}"
+  export APP_TLS_SECRET="${CI_ENVIRONMENT_SLUG}-tls"
 
   # Redis
   export REDIS_NAME="redis"
@@ -154,7 +239,7 @@ deploy to staging:
     grep -e "flake8" requirements_dev.txt | pip install -r /dev/stdin
   }
 
-  setup_gcloud_kubectl() {
+  function setup_gcloud_kubectl() {
     echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
     gcloud auth activate-service-account "${GCP_SERVICE_ACCOUNT}" --key-file=key.json
     gcloud config set core/project "${GCP_PROJECT}"
@@ -162,13 +247,24 @@ deploy to staging:
     gcloud container clusters get-credentials "${KUBE_CLUSTER_NAME}"
   }
 
-  setup_helm() {
+  function setup_helm() {
     helm init
     helm repo update
   }
 
-  setup_redis() {
-    if [[ -z "$(helm list -q "^${REDIS_RELEASE_NAME}$")" ]]; then
+  function setup_preview_env() {
+    export KUBE_CLUSTER_NAME="staging" # temporalily
+    export APP_KUBE_NAMESPACE="${CI_JOB_STAGE}"
+
+    export REDIS_RELEASE_NAME="${CI_COMMIT_REF_SLUG}-${APP_KUBE_NAMESPACE}-${REDIS_NAME}"
+    export APP_RELEASE_NAME="${CI_COMMIT_REF_SLUG}-${APP_KUBE_NAMESPACE}-${APP_NAME}"
+    export APP_DOMAIN="${CI_COMMIT_REF_SLUG}.${APP_KUBE_NAMESPACE}.${APP_BASE_DOMAIN}"
+    export APP_TLS_SECRET="${CI_COMMIT_REF_SLUG}-${APP_KUBE_NAMESPACE}-tls"
+
+  }
+
+  function setup_redis() {
+    if [[ -z "$(helm list -q "^${REDIS_RELEASE_NAME}$" --namespace "${APP_KUBE_NAMESPACE}")" ]]; then
       helm install \
         "${REDIS_CHART}" \
         --name "${REDIS_RELEASE_NAME}" \
@@ -181,17 +277,27 @@ deploy to staging:
     fi
   }
 
-  deploy_app() {
+  function deploy_app() {
     helm upgrade --install \
       --wait \
       --set image.tag="${CI_COMMIT_SHA:0:8}" \
       --set ingress.hosts={"${APP_DOMAIN}"} \
-      --set "ingress.tls[0].secretName="${CI_ENVIRONMENT_SLUG}-tls"" \
+      --set "ingress.tls[0].secretName="${APP_TLS_SECRET}"" \
       --set "ingress.tls[0].hosts={"${APP_DOMAIN}"}"   \
       --set redisHostname="${REDIS_RELEASE_NAME}-master.${APP_KUBE_NAMESPACE}.svc.cluster.local" \
       --namespace "${APP_KUBE_NAMESPACE}" \
       "${APP_RELEASE_NAME}" \
       etc/cd/helm-charts/myapp/
+  }
+
+  function teardown_preview() {
+    if [[ -n "$(helm list -q "^${APP_RELEASE_NAME}$" --namespace "${APP_KUBE_NAMESPACE}")" ]]; then
+      helm delete --purge "${APP_RELEASE_NAME}"
+    fi
+
+    if [[ -n "$(helm list -q "^${REDIS_RELEASE_NAME}$" --namespace "${APP_KUBE_NAMESPACE}")" ]]; then
+      helm delete --purge "${REDIS_RELEASE_NAME}"
+    fi
   }
 
 before_script:
