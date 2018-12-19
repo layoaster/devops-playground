@@ -27,7 +27,7 @@ has been hit:
 
 ```Json
 {
-    "Hello World!": 3
+    "Hello-World! hits": 3
 }
 ```
 
@@ -83,6 +83,7 @@ The project CI/CD pipeline has the following stages:
 
 * `build`: build the docker images.
 * `test`: run application unitest's suite and checks the code quality.
+* `review`: temporary branch-based deployment.
 * `staging`: deployment to the staging cluster/environment.
 * `production`: deployment to the production cluster/environment.
 
@@ -119,6 +120,9 @@ etc
 
 * Gitlab CI/CD [reference](https://docs.gitlab.com/ee/ci/README.html).
 * Gitlab CI/CD [variables](https://docs.gitlab.com/ee/ci/variables/README.html).
+* Gitlab Auto-devops CI/CD
+  [template](https://gitlab.com/gitlab-org/gitlab-ce/blob/master/lib/gitlab/ci/templates/Auto-DevOps.gitlab-ci.yml).
+* Gitlab CI/CD pipelines [examples](https://gitlab.com/gitlab-examples).
 * Helm [documentation](https://docs.helm.sh/).
 * Helm/Tiller required
   [config](https://docs.gitlab.com/ee/install/kubernetes/preparation/tiller.html#preparing-for-helm-with-rbac)
