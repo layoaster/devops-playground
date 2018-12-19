@@ -100,6 +100,8 @@ review:
 stop_review:
   stage: review
 
+  image: audiadis/gcloud-helm:latest
+
   script:
     # Config for the review stage
     - setup_preview_env
