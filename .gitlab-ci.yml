@@ -36,6 +36,11 @@ building:
     # Pusblish image
     - docker push "${WEBAPI_IMAGE_TAG}"
 
+  only:
+    - branches
+    - merge_requests
+    - tags
+
 
 ############## Code Quality #############
 code quality checks:
@@ -46,6 +51,11 @@ code quality checks:
   script:
     - setup_code_quality
     - flake8
+
+  only:
+    - branches
+    - merge_requests
+    - tags
 
 
 ############## Test #############
@@ -66,6 +76,11 @@ testing:
     - docker-compose down
 
   coverage: '/^TOTAL\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+\%)$/'
+
+  only:
+    - branches
+    - merge_requests
+    - tags
 
 
 ############## App Review #############
