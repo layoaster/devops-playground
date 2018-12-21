@@ -1,0 +1,13 @@
+# Redis values for the staging environment
+# Chart source/dcos: https://github.com/helm/charts/tree/master/stable/redis
+image:
+  tag: 5.0.2
+master:
+  persistence:
+    enabled: false
+
+cluster:
+  enabled: true
+  slaveCount: 1
+
+usePassword: false

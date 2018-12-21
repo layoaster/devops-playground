@@ -1,0 +1,24 @@
+# Docker compose for CI/CD environment
+version: "3"
+
+services:
+  webapi:
+    build:
+      context: ../../
+    image: ${WEBAPI_IMAGE_TAG}
+    environment:
+      - REDIS_HOSTNAME=redis
+    ports:
+      - "80:5000"
+    networks:
+      - api_network
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:5.0.2-alpine"
+    networks:
+      - api_network
+
+networks:
+  api_network:

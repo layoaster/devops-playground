@@ -1,0 +1,4 @@
+__pycache__
+.git/
+htmlcov/
+.pytest_cache/
