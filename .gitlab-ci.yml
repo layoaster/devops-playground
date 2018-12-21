@@ -91,10 +91,10 @@ review:
     on_stop: stop_review
 
   only:
-    - branches
+    - merge_requests
   except:
-    - develop
     - master
+    - production
 
 
 stop_review:
@@ -121,6 +121,12 @@ stop_review:
 
   when: manual
 
+  only:
+    - merge_requests
+  except:
+    - master
+    - production
+
 
 
 ############## Staging Deployment #############
@@ -143,7 +149,6 @@ deploy to staging:
     url: https://$CI_ENVIRONMENT_SLUG.$APP_BASE_DOMAIN
 
   only:
-    - develop
     - master
 
 
@@ -165,10 +170,11 @@ deploy to production:
     name: production
     url: https://api.$APP_BASE_DOMAIN
 
-  when: manual
+  # Uncomment to enable manual deployments
+  # when: manual
 
   only:
-    - master
+    - production
 
 
 # ---------------------------------------------------------------------------
