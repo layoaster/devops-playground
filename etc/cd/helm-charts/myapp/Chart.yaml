@@ -1,0 +1,18 @@
+# Chat properties
+apiVersion: v1
+name: myapp
+version: 0.1.1
+kubeVersion: ">1.10.9-0"
+
+# Project properties
+home: https://gitlab.com/audiadis/devops-playground
+sources:
+  - https://gitlab.com/audiadis/devops-playground/tree/master/myapi
+description: The myapp heml chart for Kubernetes
+
+maintainers:
+  - name: Lionel Aster Mena García
+    email: lionel@audiadis.io
+
+appVersion: "1.0"
+tillerVersion: ">2.0.0"

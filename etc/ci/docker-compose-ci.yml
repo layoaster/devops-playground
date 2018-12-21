@@ -6,6 +6,8 @@ services:
     build:
       context: ../../
     image: ${WEBAPI_IMAGE_TAG}
+    environment:
+      - REDIS_HOSTNAME=redis
     ports:
       - "80:5000"
     networks:
