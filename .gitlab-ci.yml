@@ -1,0 +1,304 @@
+# Project's CI/CD config
+
+image: alpine:latest
+
+variables:
+  # When using dind, it's wise to use the overlayfs driver for
+  # improved performance.
+  DOCKER_DRIVER: overlay2
+
+  # CI's docker-compose config file
+  CI_DOCKER_COMPOSE_FILE: ./etc/ci/docker-compose-ci.yml
+
+
+stages:
+  - build
+  - test
+  - review
+  - staging
+  - production
+
+
+############## Build #############
+building:
+  stage: build
+
+  image: docker:stable-git
+  services:
+    - docker:stable-dind
+
+  script:
+    - setup_dind
+    - setup_docker_compose
+    - docker_auth
+    # Builds image
+    - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" build --no-cache
+    # Pusblish image
+    - docker push "${WEBAPI_IMAGE_TAG}"
+
+
+############## Code Quality #############
+code quality checks:
+  stage: test
+
+  image: python:3.6-alpine3.7
+
+  script:
+    - setup_code_quality
+    - flake8
+
+
+############## Test #############
+testing:
+  stage: test
+
+  image: docker:stable-git
+  services:
+    - docker:stable-dind
+
+  script:
+    - setup_dind
+    - setup_docker_compose
+    - docker_auth
+    # Pulls image and test
+    - docker pull "${WEBAPI_IMAGE_TAG}"
+    - docker-compose -f "${CI_DOCKER_COMPOSE_FILE}" run --rm webapi pytest
+    - docker-compose down
+
+  coverage: '/^TOTAL\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+\%)$/'
+
+
+############## App Review #############
+review:
+  stage: review
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Config for the review stage
+    - setup_preview_env
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Preview app deployment
+    - setup_redis
+    - deploy_app
+
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    url: https://$CI_COMMIT_REF_SLUG.review.$APP_BASE_DOMAIN
+    on_stop: stop_review
+
+  only:
+    - branches
+  except:
+    - develop
+    - master
+
+
+stop_review:
+  stage: review
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Config for the review stage
+    - setup_preview_env
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Preview app deployment cleanup
+    - teardown_preview
+
+  variables:
+    GIT_STRATEGY: none
+
+  environment:
+    name: review/$CI_COMMIT_REF_NAME
+    action: stop
+
+  when: manual
+
+
+
+############## Staging Deployment #############
+deploy to staging:
+  stage: staging
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Staging app deployment
+    - setup_redis
+    - deploy_app
+
+  environment:
+    name: staging
+    url: https://$CI_ENVIRONMENT_SLUG.$APP_BASE_DOMAIN
+
+  only:
+    - develop
+    - master
+
+
+############## Production Deployment #############
+deploy to production:
+  stage: production
+
+  image: audiadis/gcloud-helm:latest
+
+  script:
+    # Authenticating and configuring gcloud/kubectl
+    - setup_gcloud_kubectl
+    # Setup helm-client
+    - setup_helm
+    # Production app deployment
+    - echo "Deployed to production"
+
+  environment:
+    name: production
+    url: https://api.$APP_BASE_DOMAIN
+
+  when: manual
+
+  only:
+    - master
+
+
+# ---------------------------------------------------------------------------
+
+.env_vars_and_helpers: &env_vars_and_helpers |
+  ###### Global env vars ######
+  # Externals tooling setup
+  export GCP_CR_DOMAIN="eu.gcr.io"
+  export DOCKER_COMPOSE_VERSION="1.23.2"
+
+  # App Name
+  export APP_NAME="webapi"
+  export APP_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${APP_NAME}"
+  export APP_KUBE_NAMESPACE="default"
+  export APP_DOMAIN="${CI_ENVIRONMENT_SLUG}.${APP_BASE_DOMAIN}"
+  export APP_TLS_SECRET="${CI_ENVIRONMENT_SLUG}-tls"
+
+  # Redis
+  export REDIS_NAME="redis"
+  export REDIS_RELEASE_NAME="${CI_ENVIRONMENT_SLUG}-${REDIS_NAME}"
+  export REDIS_CHART="stable/redis"
+  export REDIS_CHART_VERSION="5.1.2"
+
+  # Docker app image tags
+  export DOCKER_IMAGE_BASE_TAG="${GCP_CR_DOMAIN}/audiadis-infrastructure"
+  export WEBAPI_IMAGE_TAG="${DOCKER_IMAGE_BASE_TAG}/webapi:${CI_COMMIT_SHA:0:8}"
+
+  # Google Cloud Config
+  export GCP_PROJECT="audiadis-infrastructure"
+  export GCP_ZONE="europe-west1-b"
+  export GCP_SERVICE_ACCOUNT="gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com"
+
+  # Kubenertes/Helm config
+  export TILLER_NAMESPACE="kube-system"
+  export KUBE_CLUSTER_NAME="${CI_ENVIRONMENT_NAME}"
+
+
+  ###### Helper funtions ######
+  function setup_dind() {
+    # When using dind service we need to instruct docker, to talk with the
+    # daemon started inside of the service. The daemon is available with
+    # a network connection instead of the default /var/run/docker.sock socket.
+    #
+    # The 'docker' hostname is the alias of the service container as described at
+    # https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#accessing-the-services
+    #
+    # Note that if you're using Kubernetes executor, the variable should be set to
+    # tcp://localhost:2375 because of how Kubernetes executor connects services
+    # to the job container
+    export DOCKER_HOST="tcp://docker:2375/"
+  }
+
+  function docker_auth() {
+    # Docker login for the GCP Container Registry
+    echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
+    docker login -u _json_key --password-stdin "https://${GCP_CR_DOMAIN}" < key.json
+  }
+
+  function setup_docker_compose() {
+    # Installing docker-compose
+    apk add --no-cache py-pip
+    pip install "docker-compose==${DOCKER_COMPOSE_VERSION}"
+  }
+
+  function setup_code_quality() {
+    # Installing flake8
+    apk add --no-cache py-pip
+    grep -e "flake8" requirements_dev.txt | pip install -r /dev/stdin
+  }
+
+  function setup_gcloud_kubectl() {
+    echo "$GCP_SERVICE_ACCOUNT_KEY" > key.json
+    gcloud auth activate-service-account "${GCP_SERVICE_ACCOUNT}" --key-file=key.json
+    gcloud config set core/project "${GCP_PROJECT}"
+    gcloud config set compute/zone "${GCP_ZONE}"
+    gcloud container clusters get-credentials "${KUBE_CLUSTER_NAME}"
+  }
+
+  function setup_helm() {
+    helm init
+    helm repo update
+  }
+
+  function setup_preview_env() {
+    export KUBE_CLUSTER_NAME="staging" # temporalily
+    export APP_KUBE_NAMESPACE="${CI_JOB_STAGE}"
+
+    export REDIS_RELEASE_NAME="${CI_COMMIT_REF_SLUG}-${APP_KUBE_NAMESPACE}-${REDIS_NAME}"
+    export APP_RELEASE_NAME="${CI_COMMIT_REF_SLUG}-${APP_KUBE_NAMESPACE}-${APP_NAME}"
+    export APP_DOMAIN="${CI_COMMIT_REF_SLUG}.${APP_KUBE_NAMESPACE}.${APP_BASE_DOMAIN}"
+    export APP_TLS_SECRET="${CI_COMMIT_REF_SLUG}-${APP_KUBE_NAMESPACE}-tls"
+
+  }
+
+  function setup_redis() {
+    if [[ -z "$(helm list -q "^${REDIS_RELEASE_NAME}$" --namespace "${APP_KUBE_NAMESPACE}")" ]]; then
+      helm install \
+        "${REDIS_CHART}" \
+        --name "${REDIS_RELEASE_NAME}" \
+        -f etc/cd/helm-charts/redis/staging-values.yaml \
+        --namespace "${APP_KUBE_NAMESPACE}" \
+        --version "${REDIS_CHART_VERSION}" \
+        --wait
+    else
+      echo "Redis is already deployed in ${CI_ENVIRONMENT_NAME}"
+    fi
+  }
+
+  function deploy_app() {
+    helm upgrade --install \
+      --wait \
+      --set image.tag="${CI_COMMIT_SHA:0:8}" \
+      --set ingress.hosts={"${APP_DOMAIN}"} \
+      --set "ingress.tls[0].secretName="${APP_TLS_SECRET}"" \
+      --set "ingress.tls[0].hosts={"${APP_DOMAIN}"}"   \
+      --set redisHostname="${REDIS_RELEASE_NAME}-master.${APP_KUBE_NAMESPACE}.svc.cluster.local" \
+      --namespace "${APP_KUBE_NAMESPACE}" \
+      "${APP_RELEASE_NAME}" \
+      etc/cd/helm-charts/myapp/
+  }
+
+  function teardown_preview() {
+    if [[ -n "$(helm list -q "^${APP_RELEASE_NAME}$" --namespace "${APP_KUBE_NAMESPACE}")" ]]; then
+      helm delete --purge "${APP_RELEASE_NAME}"
+    fi
+
+    if [[ -n "$(helm list -q "^${REDIS_RELEASE_NAME}$" --namespace "${APP_KUBE_NAMESPACE}")" ]]; then
+      helm delete --purge "${REDIS_RELEASE_NAME}"
+    fi
+  }
+
+before_script:
+  - *env_vars_and_helpers
