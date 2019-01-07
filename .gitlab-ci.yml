@@ -250,8 +250,9 @@ deploy to production:
   }
 
   function setup_helm() {
-    helm init
+    helm init --client-only
     helm repo update
+    helm version
   }
 
   function setup_preview_env() {
