@@ -33,7 +33,9 @@ spec:
             - name: REDIS_HOSTNAME
               value: {{ .Values.redisHostname | quote }}
           ports:
-            - containerPort: 5000
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
           livenessProbe:
           # To make sure container is restarted if it fails
             httpGet:
