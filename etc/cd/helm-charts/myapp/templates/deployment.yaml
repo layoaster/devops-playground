@@ -33,15 +33,19 @@ spec:
             - name: REDIS_HOSTNAME
               value: {{ .Values.redisHostname | quote }}
           ports:
-            - containerPort: 5000
-          # livenessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: http
-          # readinessProbe:
-          #   httpGet:
-          #     path: /
-          #     port: http
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          livenessProbe:
+          # To make sure container is restarted if it fails
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+          # To start serving requests when container is ready
+            httpGet:
+              path: /healthz
+              port: http
 
 
 # apiVersion: apps/v1beta2
