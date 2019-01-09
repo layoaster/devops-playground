@@ -10,8 +10,7 @@ import redis
 from flask import Flask, jsonify
 from flask_restful import Api, Resource
 
-# Logging config
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(message)s')
+# Application logger
 logger = logging.getLogger('myapi')
 
 app = Flask(__name__)
@@ -53,8 +52,15 @@ class HelloWorld(Resource):
         :return: Main page data.
         """
         hits = get_hit_count()
-        logger.info('Main page visited')
-        logger.debug(f'Visited {hits} times')
+
+        logger.debug(f'Page visited {hits} times')
+        logger.info('Main page visited', extra={'hits': hits})
+
+        # Uncomment to test Sentry's event generation
+        # import random
+        # if random.random() >= 0.5:
+        #     raise OSError()
+
         response = jsonify({'Hello-World! hits': hits})
         response.status_code = 202
 
