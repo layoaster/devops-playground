@@ -36,6 +36,9 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          resources:
+            requests:
+              cpu: "250m"
           livenessProbe:
           # To make sure container is restarted if it fails
             httpGet:
