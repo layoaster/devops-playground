@@ -58,7 +58,7 @@ class HelloWorld(Resource):
 
         # Uncomment to test Sentry's event generation
         # import random
-        # if random.random() >= 0.5:
+        # if random.random() >= 0.85:
         #     raise OSError()
 
         response = jsonify({'Hello-World! hits': hits})
