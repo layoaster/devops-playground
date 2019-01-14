@@ -17,6 +17,7 @@ RUN set -x \
     && pip install --upgrade pip \
     && pip install -r requirements.txt
 
+COPY ./etc/gunicorn_conf.py /code/etc/
 COPY ./myapi ./myapi
 
-CMD [ "python", "myapi/app.py" ]
+CMD [ "gunicorn", "-c", "./etc/gunicorn_conf.py", "myapi.app:app" ]

@@ -36,16 +36,23 @@ spec:
             - name: http
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+          resources:
+            requests:
+              cpu: "250m"
           livenessProbe:
           # To make sure container is restarted if it fails
             httpGet:
               path: /healthz
               port: http
+            periodSeconds: 60
+            timeoutSeconds: 120
           readinessProbe:
           # To start serving requests when container is ready
             httpGet:
               path: /healthz
               port: http
+            periodSeconds: 60
+            timeoutSeconds: 120
 
 
 # apiVersion: apps/v1beta2
