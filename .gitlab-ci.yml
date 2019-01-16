@@ -221,6 +221,7 @@ deploy to production:
     # tcp://localhost:2375 because of how Kubernetes executor connects services
     # to the job container
     export DOCKER_HOST="tcp://docker:2375/"
+    docker info
   }
 
   function docker_auth() {
