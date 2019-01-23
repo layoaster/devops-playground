@@ -24,7 +24,7 @@ ingress:
     # Staging Issuer
     #certmanager.k8s.io/issuer: "letsencrypt-staging"
     # Production Issuer
-    certmanager.k8s.io/issuer: "letsencrypt-prod"
+    certmanager.k8s.io/cluster-issuer: "letsencrypt-prod"
     certmanager.k8s.io/acme-challenge-type: http01
   path: /
   hosts:
