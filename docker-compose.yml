@@ -1,10 +1,11 @@
 # Docker compose for local/dev environment
-version: "3"
+version: "3.7"
 
 services:
   webapi:
     build:
       context: .
+      target: release
     image: webapi
     environment:
       - REDIS_HOSTNAME=redis
