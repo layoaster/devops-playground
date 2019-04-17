@@ -200,11 +200,10 @@ deploy to production:
 
   # Google Cloud Config
   export GCP_PROJECT="audiadis-infrastructure"
-  export GCP_ZONE="europe-west1-b"
+  export GCP_ZONE="europe-west6-a"
   export GCP_SERVICE_ACCOUNT="gitlab-ci@audiadis-infrastructure.iam.gserviceaccount.com"
 
-  # Kubenertes/Helm config
-  export TILLER_NAMESPACE="kube-system"
+  # Kubenertes config
   export KUBE_CLUSTER_NAME="${CI_ENVIRONMENT_NAME}"
 
 
@@ -251,8 +250,9 @@ deploy to production:
   }
 
   function setup_helm() {
-    helm init --client-only
     helm repo update
+    helm tiller start-ci
+    export HELM_HOST=localhost:44134
     helm version
   }
 
