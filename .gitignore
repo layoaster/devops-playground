@@ -13,6 +13,7 @@ MANIFEST
 # Visual code project settings
 .vscode/
 
-# Coverage files
+# mypy, coverage files
+.mypy_cache/
 .coverage
 htmlcov/
