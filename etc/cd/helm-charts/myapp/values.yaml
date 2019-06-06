@@ -12,10 +12,12 @@ image:
 nameOverride: ""
 fullnameOverride: ""
 
+deployment:
+  containerPort: 5000
+
 service:
-  type: NodePort
+  type: ClusterIP
   port: 80
-  targetPort: 5000
 
 ingress:
   enabled: true
